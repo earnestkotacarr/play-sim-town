@@ -17,6 +17,11 @@ export type ViewportProps = {
   children?: ReactNode;
 };
 
+// Smallest zoom: the whole map fits in the window.
+function fitScale(p: { screenWidth: number; screenHeight: number; worldWidth: number; worldHeight: number }) {
+  return Math.max(0.05, Math.min(p.screenWidth / p.worldWidth, p.screenHeight / p.worldHeight));
+}
+
 // https://davidfig.github.io/pixi-viewport/jsdoc/Viewport.html
 export default PixiComponent('Viewport', {
   create(props: ViewportProps) {
@@ -38,13 +43,19 @@ export default PixiComponent('Viewport', {
       .decelerate()
       .clamp({ direction: 'all', underflow: 'center' })
       .setZoom(-10)
-      .clampZoom({
-        minScale: (1.04 * props.screenWidth) / (props.worldWidth / 2),
-        maxScale: 3.0,
-      });
+      .clampZoom({ minScale: fitScale(props), maxScale: 3.0 });
     return viewport;
   },
   applyProps(viewport, oldProps: any, newProps: any) {
+    // play-sim-town: on resize, keep the whole map visible as the zoomed-out limit
+    if (
+      oldProps.screenWidth !== newProps.screenWidth ||
+      oldProps.screenHeight !== newProps.screenHeight
+    ) {
+      viewport.resize(newProps.screenWidth, newProps.screenHeight);
+      viewport.setZoom(-10).clampZoom({ minScale: fitScale(newProps), maxScale: 3.0 });
+      viewport.moveCenter(newProps.worldWidth / 2, newProps.worldHeight / 2);
+    }
     Object.keys(newProps).forEach((p) => {
       if (p !== 'app' && p !== 'viewportRef' && p !== 'children' && oldProps[p] !== newProps[p]) {
         // @ts-expect-error Ignoring TypeScript here

@@ -2,8 +2,19 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/ai-town/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/ai-town/:match*",
       "destination": "/:match*"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/ai-town",
+      "permanent": false
     }
   ]
 }

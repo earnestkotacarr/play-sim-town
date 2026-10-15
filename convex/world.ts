@@ -97,8 +97,11 @@ export const restartDeadWorlds = internalMutation({
 export const userStatus = query({
   args: {
     worldId: v.id('worlds'),
+    // play-sim-town: each browser carries its own id (no login), see src/hooks/humanToken.ts
+    tokenIdentifier: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.tokenIdentifier) return args.tokenIdentifier;
     // const identity = await ctx.auth.getUserIdentity();
     // if (!identity) {
     //   return null;
@@ -111,6 +114,11 @@ export const userStatus = query({
 export const joinWorld = mutation({
   args: {
     worldId: v.id('worlds'),
+    // play-sim-town onboarding: who you are and which kind you play
+    name: v.optional(v.string()),
+    character: v.optional(v.string()),
+    kind: v.optional(v.union(v.literal('ant'), v.literal('grasshopper'))),
+    tokenIdentifier: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // const identity = await ctx.auth.getUserIdentity();
@@ -129,12 +137,22 @@ export const joinWorld = mutation({
       throw new ConvexError(`Invalid world ID: ${args.worldId}`);
     }
     // const { tokenIdentifier } = identity;
+    const kind = args.kind ?? 'ant';
+    const who = (args.name ?? '').trim().slice(0, 24) || name;
+    const character =
+      args.character && characters.some((c) => c.name === args.character)
+        ? args.character
+        : characters[Math.floor(Math.random() * characters.length)].name;
+    const fullName = `${kind === 'ant' ? 'Ant' : 'Grasshopper'} ${who}`;
     return await insertInput(ctx, world._id, 'join', {
-      name,
-      character: characters[Math.floor(Math.random() * characters.length)].name,
-      description: `${DEFAULT_NAME} is a human player`,
-      // description: `${identity.givenName} is a human player`,
-      tokenIdentifier: DEFAULT_NAME,
+      name: fullName,
+      character,
+      description:
+        kind === 'ant'
+          ? `${fullName} is a human playing an ant: survival first, careful with food, but likes company.`
+          : `${fullName} is a human playing a grasshopper: play first, loves the bar and the talk.`,
+      tokenIdentifier: args.tokenIdentifier ?? DEFAULT_NAME,
+      kind,
     });
   },
 });
@@ -142,6 +160,7 @@ export const joinWorld = mutation({
 export const leaveWorld = mutation({
   args: {
     worldId: v.id('worlds'),
+    tokenIdentifier: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // const identity = await ctx.auth.getUserIdentity();
@@ -154,7 +173,8 @@ export const leaveWorld = mutation({
       throw new Error(`Invalid world ID: ${args.worldId}`);
     }
     // const existingPlayer = world.players.find((p) => p.human === tokenIdentifier);
-    const existingPlayer = world.players.find((p) => p.human === DEFAULT_NAME);
+    const token = args.tokenIdentifier ?? DEFAULT_NAME;
+    const existingPlayer = world.players.find((p) => p.human === token);
     if (!existingPlayer) {
       return;
     }

@@ -54,6 +54,11 @@ export const serializedPlayer = {
   position: point,
   facing: vector,
   speed: v.number(),
+
+  // play-sim-town ecology
+  energy: v.optional(v.number()),
+  inBarUntil: v.optional(v.number()),
+  kind: v.optional(v.union(v.literal('ant'), v.literal('grasshopper'))),
 };
 export type SerializedPlayer = ObjectType<typeof serializedPlayer>;
 
@@ -68,6 +73,9 @@ export class Player {
   position: Point;
   facing: Vector;
   speed: number;
+  energy?: number;
+  inBarUntil?: number;
+  kind?: 'ant' | 'grasshopper';
 
   constructor(serialized: SerializedPlayer) {
     const { id, human, pathfinding, activity, lastInput, position, facing, speed } = serialized;
@@ -79,6 +87,9 @@ export class Player {
     this.position = position;
     this.facing = facing;
     this.speed = speed;
+    this.energy = serialized.energy;
+    this.inBarUntil = serialized.inBarUntil;
+    this.kind = serialized.kind;
   }
 
   tick(game: Game, now: number) {
@@ -172,6 +183,7 @@ export class Player {
     character: string,
     description: string,
     tokenIdentifier?: string,
+    kind?: 'ant' | 'grasshopper',
   ) {
     if (tokenIdentifier) {
       let numHumans = 0;
@@ -188,7 +200,13 @@ export class Player {
       }
     }
     let position;
-    for (let attempt = 0; attempt < 10; attempt++) {
+    if (kind) {
+      for (let attempt = 0; attempt < 20 && !position; attempt++) {
+        const candidate = { x: 42 + Math.floor(Math.random() * 5), y: 24 + Math.floor(Math.random() * 3) };
+        if (!blocked(game, now, candidate)) position = candidate;
+      }
+    }
+    for (let attempt = 0; attempt < 10 && !position; attempt++) {
       const candidate = {
         x: Math.floor(Math.random() * game.worldMap.width),
         y: Math.floor(Math.random() * game.worldMap.height),
@@ -222,6 +240,7 @@ export class Player {
         position,
         facing,
         speed: 0,
+        kind,
       }),
     );
     game.playerDescriptions.set(
@@ -259,6 +278,9 @@ export class Player {
       position,
       facing,
       speed,
+      energy: this.energy,
+      inBarUntil: this.inBarUntil,
+      kind: this.kind,
     };
   }
 }
@@ -270,9 +292,18 @@ export const playerInputs = {
       character: v.string(),
       description: v.string(),
       tokenIdentifier: v.optional(v.string()),
+      kind: v.optional(v.union(v.literal('ant'), v.literal('grasshopper'))),
     },
     handler: (game, now, args) => {
-      Player.join(game, now, args.name, args.character, args.description, args.tokenIdentifier);
+      Player.join(
+        game,
+        now,
+        args.name,
+        args.character,
+        args.description,
+        args.tokenIdentifier,
+        args.kind,
+      );
       return null;
     },
   }),

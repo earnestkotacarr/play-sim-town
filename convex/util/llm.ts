@@ -109,12 +109,11 @@ export function getLLMConfig(): LLMConfig {
   };
 }
 
-const AuthHeaders = (): Record<string, string> =>
-  getLLMConfig().apiKey
-    ? {
-        Authorization: 'Bearer ' + getLLMConfig().apiKey,
-      }
-    : {};
+const AuthHeaders = (): Record<string, string> => ({
+  ...(getLLMConfig().apiKey ? { Authorization: 'Bearer ' + getLLMConfig().apiKey } : {}),
+  // play-sim-town: when Ollama sits behind tools/ollama-gate.mjs (tunnelled), it wants this key
+  ...(process.env.OLLAMA_GATE_KEY ? { 'x-playsim-key': process.env.OLLAMA_GATE_KEY } : {}),
+});
 
 // Overload for non-streaming
 export async function chatCompletion(
@@ -692,6 +691,7 @@ export async function ollamaFetchEmbedding(text: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...AuthHeaders(),
       },
       body: JSON.stringify({ model: config.embeddingModel, prompt: text }),
     });

@@ -1,3 +1,4 @@
+import { humanToken } from '../hooks/humanToken.ts';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
@@ -25,7 +26,7 @@ export default function PlayerDetails({
   setSelectedElement: SelectElement;
   scrollViewRef: React.RefObject<HTMLDivElement>;
 }) {
-  const humanTokenIdentifier = useQuery(api.world.userStatus, { worldId });
+  const humanTokenIdentifier = useQuery(api.world.userStatus, { worldId, tokenIdentifier: humanToken() });
 
   const players = [...game.world.players.values()];
   const humanPlayer = players.find((p) => p.human === humanTokenIdentifier);

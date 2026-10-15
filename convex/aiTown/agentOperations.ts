@@ -14,6 +14,7 @@ import { ACTIVITIES, ACTIVITY_COOLDOWN, CONVERSATION_COOLDOWN } from '../constan
 import { api, internal } from '../_generated/api';
 import { sleep } from '../util/sleep';
 import { serializedPlayer } from './player';
+import { barSpot } from './ecology';
 
 export const agentRememberConversation = internalAction({
   args: {
@@ -120,7 +121,8 @@ export const agentDoSomething = internalAction({
           args: {
             operationId: args.operationId,
             agentId: agent.id,
-            destination: wanderDestination(map),
+            destination:
+              player.inBarUntil && now < player.inBarUntil ? barSpot() : wanderDestination(map),
           },
         });
         return;

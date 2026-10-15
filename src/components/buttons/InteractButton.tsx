@@ -1,3 +1,4 @@
+import { humanToken } from '../../hooks/humanToken';
 import Button from './Button';
 import { toast } from 'react-toastify';
 import interactImg from '../../../assets/interact.svg';
@@ -15,7 +16,10 @@ export default function InteractButton() {
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const worldId = worldStatus?.worldId;
   const game = useServerGame(worldId);
-  const humanTokenIdentifier = useQuery(api.world.userStatus, worldId ? { worldId } : 'skip');
+  const humanTokenIdentifier = useQuery(
+    api.world.userStatus,
+    worldId ? { worldId, tokenIdentifier: humanToken() } : 'skip',
+  );
   const userPlayerId =
     game && [...game.world.players.values()].find((p) => p.human === humanTokenIdentifier)?.id;
   const join = useMutation(api.world.joinWorld);
@@ -27,7 +31,7 @@ export default function InteractButton() {
     async (worldId: Id<'worlds'>) => {
       let inputId;
       try {
-        inputId = await join({ worldId });
+        inputId = await join({ worldId, tokenIdentifier: humanToken() });
       } catch (e: any) {
         if (e instanceof ConvexError) {
           toast.error(e.data);
@@ -54,7 +58,7 @@ export default function InteractButton() {
     }
     if (isPlaying) {
       console.log(`Leaving game for player ${userPlayerId}`);
-      void leave({ worldId });
+      void leave({ worldId, tokenIdentifier: humanToken() });
     } else {
       console.log(`Joining game`);
       void joinInput(worldId);

@@ -5,6 +5,8 @@ import { useElementSize } from 'usehooks-ts';
 import { Stage } from '@pixi/react';
 import { ConvexProvider, useConvex, useQuery } from 'convex/react';
 import PlayerDetails from './PlayerDetails.tsx';
+import { MetricsPanel } from './MetricsPanel.tsx';
+import { LangToggle, Onboarding, YouCard, useOnboardingOpen } from './Onboarding.tsx';
 import { api } from '../../convex/_generated/api';
 import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
 import { useHistoricalTime } from '../hooks/useHistoricalTime.ts';
@@ -21,6 +23,7 @@ export default function Game() {
     id: GameId<'players'>;
   }>();
   const [gameWrapperRef, { width, height }] = useElementSize();
+  const [onboardingOpen, setOnboardingOpen] = useOnboardingOpen();
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const worldId = worldStatus?.worldId;
@@ -42,12 +45,12 @@ export default function Game() {
   return (
     <>
       {SHOW_DEBUG_UI && <DebugTimeManager timeManager={timeManager} width={200} height={100} />}
-      <div className="mx-auto w-full max-w grid grid-rows-[240px_1fr] lg:grid-rows-[1fr] lg:grid-cols-[1fr_auto] lg:grow max-w-[1400px] min-h-[480px] game-frame">
+      <div className="absolute inset-0">
         {/* Game area */}
-        <div className="relative overflow-hidden bg-brown-900" ref={gameWrapperRef}>
+        <div className="absolute inset-y-0 left-0 right-0 md:right-[400px] overflow-hidden bg-brown-900" ref={gameWrapperRef}>
           <div className="absolute inset-0">
             <div className="container">
-              <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
+              <Stage width={width} height={height} options={{ backgroundColor: 0x1b2a14 }}>
                 {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
                 <ConvexProvider client={convex}>
@@ -65,9 +68,19 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             </div>
           </div>
         </div>
-        {/* Right column area */}
+        {/* play-sim-town: join as an ant or a grasshopper */}
+        <YouCard game={game} worldId={worldId} openOnboarding={() => setOnboardingOpen(true)} />
+        <LangToggle />
+        <Onboarding worldId={worldId} open={onboardingOpen} setOpen={setOnboardingOpen} />
+        {/* play-sim-town: survival vs play panel */}
+        <div className="absolute inset-y-0 right-0 w-[400px] hidden md:block border-l-4 border-brown-900">
+          <MetricsPanel game={game} worldId={worldId} engineId={engineId} />
+        </div>
+        {/* Right column area: character details, over the panel when a character is clicked */}
         <div
-          className="flex flex-col overflow-y-auto shrink-0 px-4 py-6 sm:px-6 lg:w-96 xl:pr-6 border-t-8 sm:border-t-0 sm:border-l-8 border-brown-900  bg-brown-800 text-brown-100"
+          className={`absolute top-0 right-0 bottom-0 w-[400px] max-w-full flex flex-col overflow-y-auto px-4 py-6 border-l-8 border-brown-900 bg-brown-800/95 text-brown-100 ${
+            selectedElement ? '' : 'hidden'
+          }`}
           ref={scrollViewRef}
         >
           <PlayerDetails

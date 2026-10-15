@@ -8,6 +8,7 @@ import { point } from '../util/types';
 import { Descriptions } from '../../data/characters';
 import { AgentDescription } from './agentDescription';
 import { Agent } from './agent';
+import { resetRun } from './reset';
 
 export const agentInputs = {
   finishRememberConversation: inputHandler({
@@ -150,6 +151,14 @@ export const agentInputs = {
         }),
       );
       return { agentId };
+    },
+  }),
+  // play-sim-town: the "Reset run" button
+  resetRun: inputHandler({
+    args: {},
+    handler: (game, now) => {
+      resetRun(game, now, 'reset');
+      return null;
     },
   }),
 };

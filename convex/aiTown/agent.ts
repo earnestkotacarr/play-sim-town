@@ -22,6 +22,7 @@ import { distance } from '../util/geometry';
 import { internal } from '../_generated/api';
 import { movePlayer } from './movement';
 import { insertInput } from './insertInput';
+import { ecoDecide, inBar, kindOf, THRESHOLDS } from './ecology';
 
 export class Agent {
   id: GameId<'agents'>;
@@ -65,6 +66,23 @@ export class Agent {
     const conversation = game.world.playerConversation(player);
     const member = conversation?.participants.get(player.id);
 
+    // play-sim-town: talking in the bar is play, so a conversation there keeps the visit going
+    if (conversation && game.world.ecology && inBar(player.position)) {
+      player.inBarUntil = Math.max(player.inBarUntil ?? 0, now + 5_000);
+    }
+    // play-sim-town: hunger interrupts whatever the agent is doing (talking, idling) to go and forage
+    if (
+      game.world.ecology &&
+      player.energy !== undefined &&
+      player.energy < THRESHOLDS[kindOf(game, player)].leave
+    ) {
+      if (conversation) {
+        conversation.leave(game, now, player);
+        return;
+      }
+      if (player.activity && player.activity.until > now) player.activity.until = now;
+    }
+
     const recentlyAttemptedInvite =
       this.lastInviteAttempt && now < this.lastInviteAttempt + CONVERSATION_COOLDOWN;
     const doingActivity = player.activity && player.activity.until > now;
@@ -75,12 +93,17 @@ export class Agent {
     // If we aren't doing an activity or moving, do something.
     // If we have been wandering but haven't thought about something to do for
     // a while, do something.
+    if (!conversation && !doingActivity && ecoDecide(game, this, player, now)) {
+      return;
+    }
     if (!conversation && !doingActivity && (!player.pathfinding || !recentlyAttemptedInvite)) {
       this.startOperation(game, now, 'agentDoSomething', {
         worldId: game.worldId,
         player: player.serialize(),
         otherFreePlayers: [...game.world.players.values()]
           .filter((p) => p.id !== player.id)
+          // play-sim-town: talk only to others who are in the bar
+          .filter((p) => !game.world.ecology || inBar(p.position))
           .filter(
             (p) => ![...game.world.conversations.values()].find((c) => c.participants.has(p.id)),
           )

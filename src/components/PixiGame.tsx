@@ -1,3 +1,4 @@
+import { humanToken } from '../hooks/humanToken.ts';
 import * as PIXI from 'pixi.js';
 import { useApp } from '@pixi/react';
 import { Player, SelectElement } from './Player.tsx';
@@ -14,6 +15,7 @@ import { DebugPath } from './DebugPath.tsx';
 import { PositionIndicator } from './PositionIndicator.tsx';
 import { SHOW_DEBUG_UI } from './Game.tsx';
 import { ServerGame } from '../hooks/serverGame.ts';
+import { Bubbles, EcologyLayer } from './EcologyLayer.tsx';
 
 export const PixiGame = (props: {
   worldId: Id<'worlds'>;
@@ -28,7 +30,10 @@ export const PixiGame = (props: {
   const pixiApp = useApp();
   const viewportRef = useRef<Viewport | undefined>();
 
-  const humanTokenIdentifier = useQuery(api.world.userStatus, { worldId: props.worldId }) ?? null;
+  const humanTokenIdentifier = useQuery(api.world.userStatus, {
+    worldId: props.worldId,
+    tokenIdentifier: humanToken(),
+  }) ?? null;
   const humanPlayerId = [...props.game.world.players.values()].find(
     (p) => p.human === humanTokenIdentifier,
   )?.id;
@@ -82,6 +87,42 @@ export const PixiGame = (props: {
   const { width, height, tileDim } = props.game.worldMap;
   const players = [...props.game.world.players.values()];
 
+  // play-sim-town: arrow keys walk one tile per press (hold to keep walking); click-to-move still works
+  useEffect(() => {
+    if (!humanPlayerId) return;
+    const dirs: Record<string, [number, number]> = {
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+    };
+    let last = 0;
+    const onKey = (e: KeyboardEvent) => {
+      const d = dirs[e.key];
+      if (!d) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      e.preventDefault();
+      const now = Date.now();
+      if (now - last < 110) return;
+      last = now;
+      const me = props.game.world.players.get(humanPlayerId);
+      if (!me) return;
+      // extend from where we are already heading, so holding a key keeps us moving
+      const base = me.pathfinding?.destination ?? {
+        x: Math.round(me.position.x),
+        y: Math.round(me.position.y),
+      };
+      const destination = {
+        x: Math.min(width - 1, Math.max(0, Math.round(base.x) + d[0])),
+        y: Math.min(height - 1, Math.max(0, Math.round(base.y) + d[1])),
+      };
+      void toastOnError(moveTo({ playerId: humanPlayerId, destination }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [humanPlayerId, props.game, width, height]);
+
   // Zoom on the user’s avatar when it is created
   useEffect(() => {
     if (!viewportRef.current || humanPlayerId === undefined) return;
@@ -107,6 +148,7 @@ export const PixiGame = (props: {
         onpointerup={onMapPointerUp}
         onpointerdown={onMapPointerDown}
       />
+      <EcologyLayer game={props.game} worldId={props.worldId} />
       {players.map(
         (p) =>
           // Only show the path for the human player in non-debug mode.
@@ -125,6 +167,7 @@ export const PixiGame = (props: {
           historicalTime={props.historicalTime}
         />
       ))}
+      <Bubbles game={props.game} worldId={props.worldId} />
     </PixiViewport>
   );
 };

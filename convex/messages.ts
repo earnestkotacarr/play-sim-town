@@ -51,3 +51,22 @@ export const writeMessage = mutation({
     });
   },
 });
+
+// play-sim-town: the latest messages in a world, for speech bubbles and the live feed
+export const recent = query({
+  args: { worldId: v.id('worlds'), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query('messages')
+      .order('desc')
+      .filter((q) => q.eq(q.field('worldId'), args.worldId))
+      .take(args.limit ?? 12);
+    return rows.map((m) => ({
+      id: m._id,
+      at: m._creationTime,
+      author: m.author,
+      conversationId: m.conversationId,
+      text: m.text,
+    }));
+  },
+});

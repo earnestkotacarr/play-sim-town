@@ -25,6 +25,8 @@ import { internal } from '../_generated/api';
 import { HistoricalObject } from '../engine/historicalObject';
 import { AgentDescription, serializedAgentDescription } from './agentDescription';
 import { parseMap, serializeMap } from '../util/object';
+import { ecoStep, shouldAutoReset } from './ecology';
+import { resetRun } from './reset';
 
 const gameState = v.object({
   world: v.object(serializedWorld),
@@ -184,6 +186,8 @@ export class Game extends AbstractGame {
     for (const player of this.world.players.values()) {
       player.tickPosition(this, now);
     }
+    ecoStep(this, now);
+    if (shouldAutoReset(this, now)) resetRun(this, now, 'extinct');
     for (const conversation of this.world.conversations.values()) {
       conversation.tick(this, now);
     }

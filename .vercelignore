@@ -1,2 +1,8 @@
-convex-local*
-convex_local*
+# play-sim-town: never upload local settings, backend data or docs to Vercel
+.env*
+.convex
+node_modules
+dist
+docs
+tools
+*.log

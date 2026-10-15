@@ -42,3 +42,10 @@ dist
 
 convex-local*
 convex_local*
+
+# play-sim-town: local secrets and local Convex backend data
+.env*
+.convex/
+/dist
+*.sqlite3
+*.db

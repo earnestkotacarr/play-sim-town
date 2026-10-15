@@ -4,6 +4,7 @@ import { Player, serializedPlayer } from './player';
 import { Agent, serializedAgent } from './agent';
 import { GameId, parseGameId, playerId } from './ids';
 import { parseMap } from '../util/object';
+import { SerializedEcology, serializedEcology } from './ecology';
 
 export const historicalLocations = v.array(
   v.object({
@@ -18,6 +19,7 @@ export const serializedWorld = {
   players: v.array(v.object(serializedPlayer)),
   agents: v.array(v.object(serializedAgent)),
   historicalLocations: v.optional(historicalLocations),
+  ecology: v.optional(v.object(serializedEcology)),
 };
 export type SerializedWorld = ObjectType<typeof serializedWorld>;
 
@@ -27,11 +29,13 @@ export class World {
   players: Map<GameId<'players'>, Player>;
   agents: Map<GameId<'agents'>, Agent>;
   historicalLocations?: Map<GameId<'players'>, ArrayBuffer>;
+  ecology?: SerializedEcology;
 
   constructor(serialized: SerializedWorld) {
     const { nextId, historicalLocations } = serialized;
 
     this.nextId = nextId;
+    this.ecology = serialized.ecology;
     this.conversations = parseMap(serialized.conversations, Conversation, (c) => c.id);
     this.players = parseMap(serialized.players, Player, (p) => p.id);
     this.agents = parseMap(serialized.agents, Agent, (a) => a.id);
@@ -54,6 +58,7 @@ export class World {
       conversations: [...this.conversations.values()].map((c) => c.serialize()),
       players: [...this.players.values()].map((p) => p.serialize()),
       agents: [...this.agents.values()].map((a) => a.serialize()),
+      ecology: this.ecology,
       historicalLocations:
         this.historicalLocations &&
         [...this.historicalLocations.entries()].map(([playerId, location]) => ({
