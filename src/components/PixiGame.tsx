@@ -87,7 +87,11 @@ export const PixiGame = (props: {
   const { width, height, tileDim } = props.game.worldMap;
   const players = [...props.game.world.players.values()];
 
-  // play-sim-town: arrow keys walk one tile per press (hold to keep walking); click-to-move still works
+  // play-sim-town: arrow keys. While a key is held, keep a short path ahead of the player
+  // (refreshed every 120 ms, so it does not depend on the OS key-repeat); release to stop.
+  // Click-to-move still works. Keys are ignored while typing in a text box.
+  const gameRef = useRef(props.game);
+  gameRef.current = props.game;
   useEffect(() => {
     if (!humanPlayerId) return;
     const dirs: Record<string, [number, number]> = {
@@ -96,37 +100,52 @@ export const PixiGame = (props: {
       ArrowLeft: [-1, 0],
       ArrowRight: [1, 0],
     };
-    let last = 0;
-    const onKey = (e: KeyboardEvent) => {
-      const d = dirs[e.key];
-      if (!d) return;
+    const held = new Set<string>();
+    const typing = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-      e.preventDefault();
-      const now = Date.now();
-      if (now - last < 110) return;
-      last = now;
-      const me = props.game.world.players.get(humanPlayerId);
-      if (!me) return;
-      // extend from where we are already heading, so holding a key keeps us moving
-      const base = me.pathfinding?.destination ?? {
-        x: Math.round(me.position.x),
-        y: Math.round(me.position.y),
-      };
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    };
+    const step = () => {
+      const me = gameRef.current.world.players.get(humanPlayerId);
+      if (!me || held.size === 0) return;
+      let dx = 0,
+        dy = 0;
+      for (const k of held) {
+        dx += dirs[k][0];
+        dy += dirs[k][1];
+      }
+      if (dx === 0 && dy === 0) return;
+      const AHEAD = 3; // tiles of path kept ahead while the key is down
       const destination = {
-        x: Math.min(width - 1, Math.max(0, Math.round(base.x) + d[0])),
-        y: Math.min(height - 1, Math.max(0, Math.round(base.y) + d[1])),
+        x: Math.min(width - 1, Math.max(0, Math.round(me.position.x) + AHEAD * Math.sign(dx))),
+        y: Math.min(height - 1, Math.max(0, Math.round(me.position.y) + AHEAD * Math.sign(dy))),
       };
       void toastOnError(moveTo({ playerId: humanPlayerId, destination }));
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [humanPlayerId, props.game, width, height]);
-
-  // dev only: lets headless tests map tiles to screen pixels (window.__playsimViewport.toScreen)
-  useEffect(() => {
-    if (import.meta.env.DEV) (window as any).__playsimViewport = viewportRef.current;
-  });
+    const onDown = (e: KeyboardEvent) => {
+      if (!dirs[e.key] || typing(e)) return;
+      e.preventDefault();
+      if (held.has(e.key)) return; // OS key-repeat: the interval already handles it
+      held.add(e.key);
+      step();
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (!dirs[e.key]) return;
+      held.delete(e.key);
+      if (held.size === 0) void toastOnError(moveTo({ playerId: humanPlayerId, destination: null }));
+    };
+    const onBlur = () => held.clear();
+    const timer = window.setInterval(step, 120);
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [humanPlayerId, width, height]);
 
   // Zoom on the user’s avatar when it is created
   useEffect(() => {

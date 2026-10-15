@@ -84,4 +84,6 @@ export const characters = [
 ];
 
 // Characters move at 0.75 tiles per second.
-export const movementSpeed = 0.75;
+// Movement speed, in tiles per second. play-sim-town: much faster than AI Town's 0.75.
+export const movementSpeed = 2.5; // AI agents
+export const humanMovementSpeed = 6; // human players (arrow keys / click)

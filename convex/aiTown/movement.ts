@@ -1,4 +1,4 @@
-import { movementSpeed } from '../../data/characters';
+import { humanMovementSpeed, movementSpeed } from '../../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
 import { compressPath, distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';
@@ -98,7 +98,7 @@ export function findRoute(game: Game, now: number, player: Player, destination: 
         position,
         facing,
         // Movement speed is in tiles per second.
-        t: current.t + (segmentLength / movementSpeed) * 1000,
+        t: current.t + (segmentLength / (player.human ? humanMovementSpeed : movementSpeed)) * 1000,
         length,
         cost: length + remaining,
         prev: current,
