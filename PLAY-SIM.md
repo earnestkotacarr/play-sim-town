@@ -43,4 +43,4 @@ Reset the town: `npx convex run testing:wipeAllTables` and then the seed step ag
 - **Fragile parts:** the quick-tunnel URL changes whenever `cloudflared` restarts. Then run `npx convex env set --deployment veracious-grasshopper-429 OLLAMA_HOST <new url>`. The gate, the tunnel and Ollama must be running on this machine for the agents to talk; without them the town still moves, but nobody speaks.
 - **Redeploy:**
   - backend: `npx convex dev --once --env-file .env.cloud`, then restore `.env.local` from `.env.local.anonymous-local`, because that command rewrites it;
-  - page: `vercel deploy --yes --build-env VITE_CONVEX_URL=https://veracious-grasshopper-429.convex.cloud --build-env VITE_CONVEX_SITE_URL=https://veracious-grasshopper-429.convex.site`.
+  - page: `vercel deploy --prod --yes`. The Convex URLs are stored as Vercel project env vars (Production and Preview). `vercel.json` rewrites `/ai-town/` to `index.html`; without that rule, the trailing-slash URL 404s.
