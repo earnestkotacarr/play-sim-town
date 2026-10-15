@@ -2,7 +2,7 @@
 
 play-sim v0 (`../play-sim/`, numpy) moved onto an open-source Sims-like simulator:
 [a16z-infra/ai-town](https://github.com/a16z-infra/ai-town) (MIT), cloned at `8e05997` (2026-08-25).
-**Status 2026-10-15: running locally, not validated, no results yet, nothing pushed, nothing committed.**
+**Status 2026-10-15: running locally and in the cloud (below); humans can talk with the agents; not validated, no results yet.**
 
 ## What was added
 | file | what |
@@ -17,6 +17,14 @@ play-sim v0 (`../play-sim/`, numpy) moved onto an open-source Sims-like simulato
 | `src/components/EcologyLayer.tsx` (new) | draws sugar (amber), the bar (purple = fun, red = crowded, grey = empty), energy bars, and the alive/dead counts |
 
 Same rule set as v0, but in real time, with fewer agents (30, not 100), and with LLM conversations in the bar (speech bubbles over the speakers). The friendship and sharing layer from v0 is **not** ported yet.
+
+## Talking to agents
+- **You start it:** click an agent, then "Start conversation". It works for any agent in the bar, and for one outside the bar unless it is hungry (a hungry agent says "Sorry, I need to eat" and goes). The agent accepts, walks over and replies; if you say nothing for 15 s it speaks first.
+- **An agent starts it:** agents in the bar invite whoever is nearest, you included. The invitation appears in the chat box with Accept / Decline.
+- **The chat box** (`src/components/ChatBox.tsx`, under the "you" card) shows who you are talking to (kind, AI or human), the last messages, a text box (Enter sends; arrow keys don't move you while it has focus; Esc leaves it) and Leave. When a conversation ends it says why: hungry, starved, left. Your lines also appear as speech bubbles and in the live feed.
+- **The prompt** (`convex/agent/conversation.ts`, `humanPrompts`) tells the agent that the other speaker is a human ant or grasshopper, whether they are in the bar, their energy and its own, to keep it to one or two sentences, and to answer in Japanese when the human wrote in Japanese (English otherwise).
+- **Hunger still rules:** a starving agent leaves mid-sentence with a fixed line (no LLM call) in your language. With a human, agents allow 30 messages instead of 8 and up to 2 min to walk over.
+- **Robustness:** an agent whose LLM call or memory summary fails is free again within about 10 s (it used to stay frozen for 2 min, unable to accept anyone).
 
 ## Run (all local, no Convex account; the page is on localhost, but the Convex local backend listens on all interfaces by default)
 ```sh

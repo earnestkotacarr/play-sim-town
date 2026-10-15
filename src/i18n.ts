@@ -1,4 +1,5 @@
-// play-sim-town: English / 日本語 for the UI we added (the agents still talk in English).
+// play-sim-town: English / 日本語 for the UI we added. The agents talk in English, and answer in
+// Japanese when a human writes to them in Japanese.
 // The language lives in module state so it reaches both the React DOM tree and the Pixi tree
 // (they are separate renderers and do not share React context).
 import { useSyncExternalStore } from 'react';
@@ -112,7 +113,7 @@ const en = {
   tutorial: (met: number, hi: number, leave: number, kind: Kind) => [
     ['Walk:', 'click anywhere on the map, or use the arrow keys. Drag to pan, scroll to zoom. You start by the bar door, with a ring under your feet.'],
     ['Eat:', `stand on an amber tile and you eat its sugar. You burn ${met} energy every second; the bar over your head shows how much is left.`],
-    ['Play:', 'walk into the bar. Click someone inside, then "Start conversation" and type. The AI agents talk only in the bar.'],
+    ['Play:', 'walk into the bar, click someone, then "Start conversation"; a chat box opens at the top left. Agents in the bar may invite you too. You can also call an agent outside the bar, unless it is hungry. Write in English or Japanese.'],
     ['Watch the crowd:', `above ${hi}% full the bar turns red and stops being fun. The agents guess the crowd; you can too.`],
     ["Don't starve:", `at 0 energy you are out, like everyone else. ${kind === 'ant' ? 'An ant' : 'A grasshopper'} agent would leave the bar below ${leave} energy.`],
   ],
@@ -129,9 +130,36 @@ const en = {
   atBarPlay: '🍺 at the bar (play)',
   foraging: '🍯 out foraging (survival)',
   tipHungry: 'Hungry! Walk to an amber tile on a hill to eat.',
-  tipInBar: 'In the bar. Click someone, then "Start conversation".',
+  tipInBar: 'In the bar. Click someone, then "Start conversation", or wait to be invited.',
   tipRich: "Plenty of energy. A good time for the bar, if it isn't too crowded.",
   tipForage: 'Forage a little: stand on amber tiles to eat.',
+
+  // talking with agents (chat box under the you card, and the details panel)
+  startConversation: 'Start conversation',
+  waitingForAccept: 'Waiting for an answer…',
+  walkingOver: 'Walking over…',
+  leaveConversation: 'Leave conversation',
+  accept: 'Accept',
+  reject: 'Decline',
+  cancel: 'Cancel',
+  send: 'Send',
+  leaveChat: 'Leave',
+  close: 'Close',
+  you: 'You',
+  whoKind: (k: Kind, human: boolean) =>
+    `${k === 'ant' ? '🐜 Ant' : '🦗 Grasshopper'} · ${human ? 'human player' : 'AI agent'}`,
+  chatInvitedYou: (name: string) => `${name} wants to talk with you.`,
+  chatWaitingAccept: (name: string) => `Waiting for ${name} to answer…`,
+  chatWalkingOver: (name: string) => `${name} is coming over…`,
+  chatSayHello: (name: string) => `Say hello! If you don't, ${name} will start.`,
+  chatTyping: (name: string) => `${name} is typing…`,
+  chatPlaceholder: 'Type a message, Enter to send',
+  chatEndedHungry: (name: string) => `${name} got hungry and left to eat.`,
+  chatEndedStarved: (name: string) => `${name} starved.`,
+  chatEndedGone: (name: string) => `${name} left the town.`,
+  chatEndedDeclined: (name: string) => `${name} can't talk right now.`,
+  chatEnded: (name: string) => `${name} left the conversation.`,
+  agentHungryNote: (name: string) => `${name} is hungry and will probably go to eat instead of talking.`,
 };
 
 const ja: typeof en = {
@@ -199,7 +227,7 @@ const ja: typeof en = {
   tutorial: (met, hi, leave, kind) => [
     ['歩く：', 'マップをクリックするか、矢印キーで移動します。ドラッグで視点を動かし、スクロールで拡大・縮小。足元に輪がついているのがあなたで、バーの入り口から始まります。'],
     ['食べる：', `琥珀色のマスに立つと、そこの砂糖を食べます。毎秒 ${met} のエネルギーを使います。頭の上のバーが残りのエネルギーです。`],
-    ['遊ぶ：', 'バーに入って、中にいる誰かをクリックし、「Start conversation」を押して話しかけます（会話は英語です）。AI エージェントはバーの中でだけ話します。'],
+    ['遊ぶ：', 'バーに入って誰かをクリックし、「話しかける」を押すと、左上にチャット欄が開きます。バーのエージェントから誘われることもあります。お腹がすいていなければ、バーの外のエージェントにも話しかけられます。日本語で書けば日本語で返事が来ます。'],
     ['混み具合を見る：', `${hi}%を超えるとバーは赤くなり、楽しくなくなります。エージェントは混み具合を予想しています。あなたも予想してみてください。`],
     ['飢えないように：', `エネルギーが0になると、ほかの者と同じく退場です。${kind === 'ant' ? 'アリ' : 'キリギリス'}のエージェントは、エネルギーが ${leave} を切るとバーを出ます。`],
   ],
@@ -215,9 +243,34 @@ const ja: typeof en = {
   atBarPlay: '🍺 バーにいる（遊び）',
   foraging: '🍯 採集中（生存）',
   tipHungry: 'お腹が空いています！丘の琥珀色のマスに行って食べましょう。',
-  tipInBar: 'バーの中です。誰かをクリックして「Start conversation」を押しましょう。',
+  tipInBar: 'バーの中です。誰かをクリックして「話しかける」を押すか、誘われるのを待ちましょう。',
   tipRich: 'エネルギーは十分です。混みすぎていなければ、バーに行くのにいいタイミングです。',
   tipForage: '少し採集しましょう。琥珀色のマスに立つと食べられます。',
+
+  startConversation: '話しかける',
+  waitingForAccept: '返事を待っています…',
+  walkingOver: '近づいています…',
+  leaveConversation: '会話をやめる',
+  accept: '話す',
+  reject: '断る',
+  cancel: 'やめる',
+  send: '送信',
+  leaveChat: '会話をやめる',
+  close: '閉じる',
+  you: 'あなた',
+  whoKind: (k, human) => `${k === 'ant' ? '🐜 アリ' : '🦗 キリギリス'}・${human ? '人間のプレイヤー' : 'AI エージェント'}`,
+  chatInvitedYou: (name) => `${name}が話しかけてきました。`,
+  chatWaitingAccept: (name) => `${name}の返事を待っています…`,
+  chatWalkingOver: (name) => `${name}がこちらに来ています…`,
+  chatSayHello: (name) => `あいさつしてみましょう。黙っていると${name}から話し始めます。`,
+  chatTyping: (name) => `${name}が入力中…`,
+  chatPlaceholder: 'メッセージを入力（Enterで送信）',
+  chatEndedHungry: (name) => `${name}はお腹がすいて、食べに行きました。`,
+  chatEndedStarved: (name) => `${name}は餓死しました。`,
+  chatEndedGone: (name) => `${name}は町を出ました。`,
+  chatEndedDeclined: (name) => `${name}はいま話せないようです。`,
+  chatEnded: (name) => `${name}は会話を抜けました。`,
+  agentHungryNote: (name) => `${name}はお腹がすいているので、話すより食べに行くでしょう。`,
 };
 
 export const STRINGS = { en, ja };

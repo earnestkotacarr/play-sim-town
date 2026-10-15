@@ -26,6 +26,7 @@ const bubbleStyle = new TextStyle({
   fontSize: 15,
   fill: '#1a1a19',
   wordWrap: true,
+  breakWords: true, // Japanese has no spaces to wrap at
   wordWrapWidth: 240,
   lineHeight: 18,
 });

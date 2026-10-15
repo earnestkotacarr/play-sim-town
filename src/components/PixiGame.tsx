@@ -123,6 +123,11 @@ export const PixiGame = (props: {
     return () => window.removeEventListener('keydown', onKey);
   }, [humanPlayerId, props.game, width, height]);
 
+  // dev only: lets headless tests map tiles to screen pixels (window.__playsimViewport.toScreen)
+  useEffect(() => {
+    if (import.meta.env.DEV) (window as any).__playsimViewport = viewportRef.current;
+  });
+
   // Zoom on the user’s avatar when it is created
   useEffect(() => {
     if (!viewportRef.current || humanPlayerId === undefined) return;

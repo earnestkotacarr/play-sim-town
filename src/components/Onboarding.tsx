@@ -312,7 +312,8 @@ export function YouCard({
     }
   }, [!!me]);
 
-  const box = 'absolute top-3 left-3 z-10 w-72 rounded-lg p-3 font-sans text-sm';
+  // placed by Game.tsx in the top-left column, above the chat box
+  const box = 'w-full rounded-lg p-3 font-sans text-sm';
   const style = { background: 'rgba(26,26,25,0.92)', color: C.ink, border: `1px solid ${C.line}` };
   if (!me) {
     return out ? (
@@ -327,7 +328,7 @@ export function YouCard({
       </div>
     ) : (
       <button
-        className="absolute top-3 left-3 z-10 rounded-lg px-4 py-2 font-sans text-sm font-bold"
+        className="self-start rounded-lg px-4 py-2 font-sans text-sm font-bold"
         style={{ background: C.ink, color: C.surface }}
         onClick={openOnboarding}
       >
@@ -388,7 +389,7 @@ export function useOnboardingOpen() {
   return useState(() => !seenOnboarding());
 }
 
-// 日本語 / English switch (UI only; the agents still talk in English)
+// 日本語 / English switch for the UI (agents answer in Japanese when you write to them in Japanese)
 export function LangToggle() {
   const lang = useLang();
   const T = useT();

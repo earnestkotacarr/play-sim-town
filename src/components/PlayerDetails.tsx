@@ -10,6 +10,8 @@ import { useSendInput } from '../hooks/sendInput';
 import { Player } from '../../convex/aiTown/player';
 import { GameId } from '../../convex/aiTown/ids';
 import { ServerGame } from '../hooks/serverGame';
+import { useT } from '../i18n.ts';
+import { THRESHOLDS } from '../../convex/aiTown/ecology.ts';
 
 export default function PlayerDetails({
   worldId,
@@ -53,6 +55,7 @@ export default function PlayerDetails({
   const acceptInvite = useSendInput(engineId, 'acceptInvite');
   const rejectInvite = useSendInput(engineId, 'rejectInvite');
   const leaveConversation = useSendInput(engineId, 'leaveConversation');
+  const T = useT();
 
   if (!playerId) {
     return (
@@ -87,6 +90,10 @@ export default function PlayerDetails({
     sameConversation &&
     playerStatus?.kind === 'participating' &&
     humanStatus?.kind === 'participating';
+  // play-sim-town: a hungry agent goes to eat rather than talk
+  const kind = player.kind ?? (playerDescription?.name.startsWith('Grasshopper') ? 'grasshopper' : 'ant');
+  const hungry =
+    !player.human && player.energy !== undefined && player.energy < THRESHOLDS[kind].leave;
 
   const onStartConversation = async () => {
     if (!humanPlayer || !playerId) {
@@ -158,21 +165,24 @@ export default function PlayerDetails({
           onClick={onStartConversation}
         >
           <div className="h-full bg-clay-700 text-center">
-            <span>Start conversation</span>
+            <span>{T.startConversation}</span>
           </div>
         </a>
+      )}
+      {canInvite && hungry && (
+        <p className="mt-2 text-sm text-brown-200">{T.agentHungryNote(playerDescription?.name ?? '')}</p>
       )}
       {waitingForAccept && (
         <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
           <div className="h-full bg-clay-700 text-center">
-            <span>Waiting for accept...</span>
+            <span>{T.waitingForAccept}</span>
           </div>
         </a>
       )}
       {waitingForNearby && (
         <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
           <div className="h-full bg-clay-700 text-center">
-            <span>Walking over...</span>
+            <span>{T.walkingOver}</span>
           </div>
         </a>
       )}
@@ -185,7 +195,7 @@ export default function PlayerDetails({
           onClick={onLeaveConversation}
         >
           <div className="h-full bg-clay-700 text-center">
-            <span>Leave conversation</span>
+            <span>{T.leaveConversation}</span>
           </div>
         </a>
       )}
@@ -199,7 +209,7 @@ export default function PlayerDetails({
             onClick={onAcceptInvite}
           >
             <div className="h-full bg-clay-700 text-center">
-              <span>Accept</span>
+              <span>{T.accept}</span>
             </div>
           </a>
           <a
@@ -210,7 +220,7 @@ export default function PlayerDetails({
             onClick={onRejectInvite}
           >
             <div className="h-full bg-clay-700 text-center">
-              <span>Reject</span>
+              <span>{T.reject}</span>
             </div>
           </a>
         </>
@@ -238,7 +248,8 @@ export default function PlayerDetails({
         <Messages
           worldId={worldId}
           engineId={engineId}
-          inConversationWithMe={inConversationWithMe ?? false}
+          // play-sim-town: you type in the chat box on the map (ChatBox.tsx), not here
+          inConversationWithMe={false}
           conversation={{ kind: 'active', doc: playerConversation }}
           humanPlayer={humanPlayer}
           scrollViewRef={scrollViewRef}

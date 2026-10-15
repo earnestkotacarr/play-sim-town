@@ -9,6 +9,7 @@ import { Descriptions } from '../../data/characters';
 import { AgentDescription } from './agentDescription';
 import { Agent } from './agent';
 import { resetRun } from './reset';
+import { ACTION_TIMEOUT } from '../constants';
 
 export const agentInputs = {
   finishRememberConversation: inputHandler({
@@ -82,6 +83,7 @@ export const agentInputs = {
       timestamp: v.number(),
       operationId: v.string(),
       leaveConversation: v.boolean(),
+      failed: v.optional(v.boolean()), // play-sim-town: no message was written
     },
     handler: (game, now, args) => {
       const agentId = parseGameId('agents', args.agentId);
@@ -95,9 +97,6 @@ export const agentInputs = {
       }
       const conversationId = parseGameId('conversations', args.conversationId);
       const conversation = game.world.conversations.get(conversationId);
-      if (!conversation) {
-        throw new Error(`Couldn't find conversation: ${conversationId}`);
-      }
       if (
         !agent.inProgressOperation ||
         agent.inProgressOperation.operationId !== args.operationId
@@ -106,6 +105,21 @@ export const agentInputs = {
         return null;
       }
       delete agent.inProgressOperation;
+      // play-sim-town: the other side (often a human) left while we were writing; don't stay stuck
+      if (!conversation) {
+        console.log(`Conversation ${conversationId} ended before ${agentId} finished its message`);
+        return null;
+      }
+      if (args.failed) {
+        if (conversation.isTyping?.playerId === agent.playerId) delete conversation.isTyping;
+        // back off ~10 s before trying again (Agent.tick times the operation out)
+        agent.inProgressOperation = {
+          name: 'backoff',
+          operationId: args.operationId,
+          started: now - ACTION_TIMEOUT + 10_000,
+        };
+        return null;
+      }
       conversationInputs.finishSendingMessage.handler(game, now, {
         playerId: agent.playerId,
         conversationId: args.conversationId,

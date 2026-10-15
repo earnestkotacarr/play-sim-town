@@ -24,6 +24,11 @@ import { movePlayer } from './movement';
 import { insertInput } from './insertInput';
 import { ecoDecide, inBar, kindOf, THRESHOLDS } from './ecology';
 
+// play-sim-town: talking with a human player
+const HUMAN_INVITE_TIMEOUT = 2 * INVITE_TIMEOUT; // agents walk 0.75 tiles/s; give them time to cross the map
+const HUMAN_FIRST_WORD_TIMEOUT = 15_000; // if the human says nothing, the agent breaks the ice
+const HUMAN_MAX_CONVERSATION_MESSAGES = 30;
+
 export class Agent {
   id: GameId<'agents'>;
   playerId: GameId<'players'>;
@@ -77,6 +82,24 @@ export class Agent {
       player.energy < THRESHOLDS[kindOf(game, player)].leave
     ) {
       if (conversation) {
+        const otherId = [...conversation.participants.keys()].find((id) => id !== player.id);
+        const other = otherId && game.world.players.get(otherId);
+        if (other && other.human) {
+          // say a short "sorry, I need to eat" (no LLM) so the human knows why, then leave
+          const messageUuid = crypto.randomUUID();
+          delete conversation.isTyping;
+          conversation.setIsTyping(now, player, messageUuid);
+          this.startOperation(game, now, 'agentGenerateMessage', {
+            worldId: game.worldId,
+            playerId: player.id,
+            agentId: this.id,
+            conversationId: conversation.id,
+            otherPlayerId: other.id,
+            messageUuid,
+            type: 'hungry',
+          });
+          return;
+        }
         conversation.leave(game, now, player);
         return;
       }
@@ -131,6 +154,8 @@ export class Agent {
         ([id]) => id !== player.id,
       )!;
       const otherPlayer = game.world.players.get(otherPlayerId)!;
+      // play-sim-town: a human gets more patience and a longer chat than another agent would
+      const withHuman = !!otherPlayer.human;
       if (member.status.kind === 'invited') {
         // Accept a conversation with another agent with some probability and with
         // a human unconditionally.
@@ -149,7 +174,7 @@ export class Agent {
       }
       if (member.status.kind === 'walkingOver') {
         // Leave a conversation if we've been waiting for too long.
-        if (member.invited + INVITE_TIMEOUT < now) {
+        if (member.invited + (withHuman ? HUMAN_INVITE_TIMEOUT : INVITE_TIMEOUT) < now) {
           console.log(`Giving up on invite to ${otherPlayer.id}`);
           conversation.leave(game, now, player);
           return;
@@ -189,7 +214,8 @@ export class Agent {
         }
         if (!conversation.lastMessage) {
           const isInitiator = conversation.creator === player.id;
-          const awkwardDeadline = started + AWKWARD_CONVERSATION_TIMEOUT;
+          const awkwardDeadline =
+            started + (withHuman ? HUMAN_FIRST_WORD_TIMEOUT : AWKWARD_CONVERSATION_TIMEOUT);
           // Send the first message if we're the initiator or if we've been waiting for too long.
           if (isInitiator || awkwardDeadline < now) {
             // Grab the lock on the conversation and send a "start" message.
@@ -213,7 +239,8 @@ export class Agent {
         }
         // See if the conversation has been going on too long and decide to leave.
         const tooLongDeadline = started + MAX_CONVERSATION_DURATION;
-        if (tooLongDeadline < now || conversation.numMessages > MAX_CONVERSATION_MESSAGES) {
+        const maxMessages = withHuman ? HUMAN_MAX_CONVERSATION_MESSAGES : MAX_CONVERSATION_MESSAGES;
+        if (tooLongDeadline < now || conversation.numMessages > maxMessages) {
           console.log(`${player.id} leaving conversation with ${otherPlayer.id}.`);
           const messageUuid = crypto.randomUUID();
           conversation.setIsTyping(now, player, messageUuid);
@@ -381,7 +408,8 @@ export const findConversationCandidate = internalQuery({
           continue;
         }
       }
-      candidates.push({ id: otherPlayer.id, position });
+      // play-sim-town: the candidate's own position (upstream pushed ours, so "nearest" was arbitrary)
+      candidates.push({ id: otherPlayer.id, position: otherPlayer.position });
     }
 
     // Sort by distance and take the nearest candidate.

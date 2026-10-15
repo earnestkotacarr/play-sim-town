@@ -7,6 +7,7 @@ import { api, internal } from '../_generated/api';
 import * as embeddingsCache from './embeddingsCache';
 import { GameId, conversationId, playerId } from '../aiTown/ids';
 import { NUM_MEMORIES_TO_SEARCH } from '../constants';
+import { THRESHOLDS, inBar } from '../aiTown/ecology';
 
 const selfInternal = internal.agent.conversation;
 
@@ -45,6 +46,7 @@ export async function startConversationMessage(
     `You are ${player.name}, and you just started a conversation with ${otherPlayer.name}.`,
   ];
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
+  prompt.push(...humanPrompts(player, otherPlayer, await lastWords(ctx, worldId, conversationId, otherPlayerId)));
   prompt.push(...previousConversationPrompt(otherPlayer, lastConversation));
   prompt.push(...untrustedMemoryInstructions(memories));
   if (memoryWithOtherPlayer) {
@@ -72,9 +74,10 @@ export async function startConversationMessage(
 
 function trimContentPrefx(content: string, prompt: string) {
   if (content.startsWith(prompt)) {
-    return content.slice(prompt.length).trim();
+    content = content.slice(prompt.length).trim();
   }
-  return content;
+  // play-sim-town: llama3 often wraps the whole line in quotes
+  return content.replace(/^"([^"]*)"$/, '$1');
 }
 
 export async function continueConversationMessage(
@@ -105,6 +108,7 @@ export async function continueConversationMessage(
     `The conversation started at ${started.toLocaleString()}. It's now ${now.toLocaleString()}.`,
   ];
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
+  prompt.push(...humanPrompts(player, otherPlayer, await lastWords(ctx, worldId, conversationId, otherPlayerId)));
   prompt.push(...untrustedMemoryInstructions(memories));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
@@ -157,6 +161,7 @@ export async function leaveConversationMessage(
     `You've decided to leave the question and would like to politely tell them you're leaving the conversation.`,
   ];
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
+  prompt.push(...humanPrompts(player, otherPlayer, await lastWords(ctx, worldId, conversationId, otherPlayerId)));
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
     `How would you like to tell them that you're leaving? Your response should be brief and within 200 characters.`,
@@ -183,6 +188,58 @@ export async function leaveConversationMessage(
     stop: stopWords(otherPlayer.name, player.name),
   });
   return trimContentPrefx(content, lastPrompt);
+}
+
+// play-sim-town: talking with a human player ------------------------------------------
+const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]/;
+
+// The latest thing the other speaker said in this conversation (for the reply language).
+async function lastWords(
+  ctx: ActionCtx,
+  worldId: Id<'worlds'>,
+  conversationId: GameId<'conversations'>,
+  authorId: GameId<'players'>,
+): Promise<string | undefined> {
+  const messages = await ctx.runQuery(api.messages.listMessages, { worldId, conversationId });
+  return messages.filter((m) => m.author === authorId).pop()?.text;
+}
+
+type Body = {
+  name: string;
+  human?: string;
+  kind?: 'ant' | 'grasshopper';
+  energy?: number;
+  position: { x: number; y: number };
+};
+
+// What an agent knows about a human it is talking to: who they are, where, how fed; which language.
+function humanPrompts(player: Body, other: Body, lastText: string | undefined): string[] {
+  if (!other.human) return [];
+  const kind = other.kind ?? 'ant';
+  const e = Math.round(other.energy ?? 0);
+  const hungry = other.energy !== undefined && other.energy < THRESHOLDS[kind].leave;
+  return [
+    `${other.name} is a real human player, not an AI, playing ${kind === 'ant' ? 'an ant' : 'a grasshopper'} in this town (eat sugar on the hills to survive; the bar is for play and talk).`,
+    `${other.name} is ${inBar(other.position) ? 'in the bar' : 'outside the bar'} with ${e} energy${hungry ? ' and is hungry' : ''}; you have ${Math.round(player.energy ?? 0)}.`,
+    `Talk to them like a neighbour. Keep it to one or two short sentences.`,
+    lastText && JAPANESE.test(lastText)
+      ? `${other.name} writes in Japanese, so reply in natural Japanese (日本語で返事をする).`
+      : `Reply in the language ${other.name} uses (English unless they write in another language).`,
+  ];
+}
+
+// A hungry agent's goodbye to a human: fixed and instant (no LLM), in the human's language.
+export async function hungryLeaveMessage(
+  ctx: ActionCtx,
+  worldId: Id<'worlds'>,
+  conversationId: GameId<'conversations'>,
+  playerId: GameId<'players'>,
+  otherPlayerId: GameId<'players'>,
+): Promise<string> {
+  const text = await lastWords(ctx, worldId, conversationId, otherPlayerId);
+  return text && JAPANESE.test(text)
+    ? 'ごめん、お腹がすいたから食べてくるね。またあとで！'
+    : "Sorry, I need to eat. Talk later!";
 }
 
 function agentPrompts(

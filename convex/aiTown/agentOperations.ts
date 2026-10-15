@@ -5,6 +5,7 @@ import { rememberConversation } from '../agent/memory';
 import { GameId, agentId, conversationId, playerId } from './ids';
 import {
   continueConversationMessage,
+  hungryLeaveMessage,
   leaveConversationMessage,
   startConversationMessage,
 } from '../agent/conversation';
@@ -25,13 +26,19 @@ export const agentRememberConversation = internalAction({
     operationId: v.string(),
   },
   handler: async (ctx, args) => {
-    await rememberConversation(
-      ctx,
-      args.worldId,
-      args.agentId as GameId<'agents'>,
-      args.playerId as GameId<'players'>,
-      args.conversationId as GameId<'conversations'>,
-    );
+    // play-sim-town: a failed summary must not leave the agent frozen until ACTION_TIMEOUT
+    // (it could not accept a human's invitation meanwhile)
+    try {
+      await rememberConversation(
+        ctx,
+        args.worldId,
+        args.agentId as GameId<'agents'>,
+        args.playerId as GameId<'players'>,
+        args.conversationId as GameId<'conversations'>,
+      );
+    } catch (e: any) {
+      console.error(`Could not remember ${args.conversationId}: ${e.message}`);
+    }
     await sleep(Math.random() * 1000);
     await ctx.runMutation(api.aiTown.main.sendInput, {
       worldId: args.worldId,
@@ -52,7 +59,12 @@ export const agentGenerateMessage = internalAction({
     conversationId,
     otherPlayerId: playerId,
     operationId: v.string(),
-    type: v.union(v.literal('start'), v.literal('continue'), v.literal('leave')),
+    type: v.union(
+      v.literal('start'),
+      v.literal('continue'),
+      v.literal('leave'),
+      v.literal('hungry'), // play-sim-town: a short fixed line, then leave to eat
+    ),
     messageUuid: v.string(),
   },
   handler: async (ctx, args) => {
@@ -67,16 +79,38 @@ export const agentGenerateMessage = internalAction({
       case 'leave':
         completionFn = leaveConversationMessage;
         break;
+      case 'hungry':
+        completionFn = hungryLeaveMessage;
+        break;
       default:
         assertNever(args.type);
     }
-    const text = await completionFn(
-      ctx,
-      args.worldId,
-      args.conversationId as GameId<'conversations'>,
-      args.playerId as GameId<'players'>,
-      args.otherPlayerId as GameId<'players'>,
-    );
+    let text;
+    try {
+      text = await completionFn(
+        ctx,
+        args.worldId,
+        args.conversationId as GameId<'conversations'>,
+        args.playerId as GameId<'players'>,
+        args.otherPlayerId as GameId<'players'>,
+      );
+    } catch (e: any) {
+      // play-sim-town: e.g. the human left mid-reply, or the LLM is down; free the agent now
+      console.error(`agentGenerateMessage (${args.type}) failed: ${e.message}`);
+      await ctx.runMutation(api.aiTown.main.sendInput, {
+        worldId: args.worldId,
+        name: 'agentFinishSendingMessage',
+        args: {
+          agentId: args.agentId,
+          conversationId: args.conversationId,
+          timestamp: Date.now(),
+          leaveConversation: false,
+          operationId: args.operationId,
+          failed: true,
+        },
+      });
+      return;
+    }
 
     await ctx.runMutation(internal.aiTown.agent.agentSendMessage, {
       worldId: args.worldId,
@@ -85,7 +119,7 @@ export const agentGenerateMessage = internalAction({
       playerId: args.playerId,
       text,
       messageUuid: args.messageUuid,
-      leaveConversation: args.type === 'leave',
+      leaveConversation: args.type === 'leave' || args.type === 'hungry',
       operationId: args.operationId,
     });
   },

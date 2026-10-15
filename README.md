@@ -1,6 +1,6 @@
 # play-sim-town
 
-El Farol × Sugarscape in a Sims-like town: 15 ants (survival first) and 15 grasshoppers (play first) share one map with two sugar hills and a bar, and the LLM agents talk only in the bar.
+El Farol × Sugarscape in a Sims-like town: 15 ants (survival first) and 15 grasshoppers (play first) share one map with two sugar hills and a bar. The LLM agents talk to each other only in the bar, and a human player can join and talk with them.
 
 This is a fork of [a16z-infra/ai-town](https://github.com/a16z-infra/ai-town) (MIT) made for the HUMAI computational social science study group (sd12, play team). It is a working prototype, not a result. AI Town's original README is kept as [`README.ai-town.md`](README.ai-town.md); a shorter working note on the changes is in [`PLAY-SIM.md`](PLAY-SIM.md).
 
@@ -13,7 +13,7 @@ This is a fork of [a16z-infra/ai-town](https://github.com/a16z-infra/ai-town) (M
 - **これは何か.** El Farol のバー（遊び）と Sugarscape の砂糖の山（生存）を、Sims のような町（a16z の AI Town）に入れたものです。アリ15体（生存が先）とキリギリス15体（遊びが先）が同じ町に住み、LLM の会話はバーの中だけで起きます。
 - **なぜ.** 遊びチームの案 ①「遊びと生存」を、9/30 の会で話した「絵から逆算する」形で見せるためです。グループで決める「共有環境のエンジン」の候補の一つで、結果ではありません。
 - **ルール.** play-sim v0（numpy 版）と同じ考え方です。砂糖は毎秒少しずつ戻り、毎秒エネルギーを使い、0 で死にます。バーは食べ物をくれず、生きている者の 15〜60% がいるときだけ楽しい。バーに行くかどうかは、エネルギーのしきい値と El Farol 型の予測で決まります（LLM が選んでいるのではありません）。
-- **人も入れる.** ブラウザから「アリ」か「キリギリス」として町に入り、同じルールで暮らせます（ログイン不要、ブラウザごとに別の ID）。
+- **人も入れる.** ブラウザから「アリ」か「キリギリス」として町に入り、同じルールで暮らせます（ログイン不要、ブラウザごとに別の ID）。エージェントと話すこともでき、左上のチャット欄で会話します。日本語で書けば日本語で返事が来ます。
 - **注意.** 検証していません。結果もありません。v0 の「友だちと分け合う」層はまだ移していません。スクリーンショットに写っている数字は1回の実行の様子で、結果として読まないでください。
 - **次.** 分け合う層の移植、シード × 砂糖の戻る速さのヘッドレス実行、しきい値の代わりに LLM が行動を選ぶ版、エージェントが環境を作り変える版（予定）。Vercel への公開は作業中です。
 
@@ -37,6 +37,7 @@ play-sim v0 (a numpy toy with 100 rule-based agents and no LLM) was the first, m
 6. **Onboarding for humans.** A visitor can join as an ant or a grasshopper: welcome, choose a kind, pick a character and name, a short tutorial, then a "you" card with energy and hints (`src/components/Onboarding.tsx`). Humans live under the same rules: they burn energy, eat, starve, and count in attendance.
 7. **Per-browser ids.** There is no login. Each browser gets its own player id in `localStorage` (`src/hooks/humanToken.ts`), so several people can join from different browsers.
 8. **Still in progress when this README was written:** a Japanese/English toggle (`src/i18n.ts`), arrow-key movement for human players, a "Reset run" button with a table of previous runs (`convex/aiTown/reset.ts`), and a small gate (`tools/ollama-gate.mjs`) that would let a cloud deployment reach the local Ollama only with a shared key and only on the three endpoints AI Town uses.
+9. **Talking to agents (later the same day).** A chat box under the "you" card (`src/components/ChatBox.tsx`) handles invitations both ways, the conversation and why it ended. The agent's prompt says it is talking to a human ant or grasshopper, where they are and how fed, and to answer in Japanese when they write in Japanese. See "Talking to agents" in [`PLAY-SIM.md`](PLAY-SIM.md).
 
 ## The rules
 
@@ -142,4 +143,4 @@ Papers
 
 AI Town is © a16z-infra and contributors, released under the MIT License; that license is kept unchanged in [`LICENSE`](LICENSE) and covers this repository. The town engine, map, sprites and most of the code are theirs.
 
-Our additions (Earnest Carr, HUMAI sd12 play team, with Claude Code) are the ecology rules (`convex/aiTown/ecology.ts`), the ant/grasshopper characters, the bar art and its generator script, the live panel, the ecology overlay, the onboarding flow, the per-browser ids, the hooks into AI Town's game loop, and these docs. They are released under the same MIT License.
+Our additions (Earnest Carr, HUMAI sd12 play team, with Claude Code) are the ecology rules (`convex/aiTown/ecology.ts`), the ant/grasshopper characters, the bar art and its generator script, the live panel, the ecology overlay, the onboarding flow and the chat box, the per-browser ids, the hooks into AI Town's game loop, and these docs. They are released under the same MIT License.

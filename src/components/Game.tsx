@@ -6,6 +6,7 @@ import { Stage } from '@pixi/react';
 import { ConvexProvider, useConvex, useQuery } from 'convex/react';
 import PlayerDetails from './PlayerDetails.tsx';
 import { MetricsPanel } from './MetricsPanel.tsx';
+import { ChatBox } from './ChatBox.tsx';
 import { LangToggle, Onboarding, YouCard, useOnboardingOpen } from './Onboarding.tsx';
 import { api } from '../../convex/_generated/api';
 import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
@@ -68,8 +69,11 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             </div>
           </div>
         </div>
-        {/* play-sim-town: join as an ant or a grasshopper */}
-        <YouCard game={game} worldId={worldId} openOnboarding={() => setOnboardingOpen(true)} />
+        {/* play-sim-town: join as an ant or a grasshopper; talk with the agents in the chat box below */}
+        <div className="absolute top-3 left-3 z-10 flex w-80 max-w-[calc(100%-6rem)] flex-col gap-2">
+          <YouCard game={game} worldId={worldId} openOnboarding={() => setOnboardingOpen(true)} />
+          <ChatBox game={game} worldId={worldId} engineId={engineId} />
+        </div>
         <LangToggle />
         <Onboarding worldId={worldId} open={onboardingOpen} setOpen={setOnboardingOpen} />
         {/* play-sim-town: survival vs play panel */}
